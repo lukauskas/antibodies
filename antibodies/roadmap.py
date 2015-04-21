@@ -324,7 +324,7 @@ class CleanRoadmapData(luigi.Task):
                             'Chromatin Amount Units',
                             ]
             df = df[column_order]
-            
+
             with self.output().open('w') as out_:
                 df.to_csv(out_)
 
