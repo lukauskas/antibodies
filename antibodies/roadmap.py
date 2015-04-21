@@ -116,6 +116,107 @@ class CleanRoadmapData(luigi.Task):
 
         return pd.Series(new_values, index=index)
 
+
+    def _fixed_chip_protocol_df(self, original_df):
+
+        protocol_df = original_df[['chip_protocol', 'chip_protocol_antibody_amount',
+                                   'chip_protocol_bead_amount', 'chip_protocol_bead_type',
+                                   'chip_protocol_chromatin_amount']].fillna('')
+
+        index = []
+        data = []
+
+        protocol_substitutions = {'See http://bioinformatics-renlab.ucsd.edu/RenLabChipProtocolV1.pdf': 'Ren',
+                                  'Farnham Lab Protocol': 'Farnham',
+                                  'Farnham lab protocol': 'Farnham',
+                                  'Input': 'Input',
+                                  'Bernstein_BROAD_ENCODE_protocol': 'Bernstein',
+                                  'BCCAGSC ChIP Standard Operating Procedure': 'BCCAGSC',
+                                  'http://www.roadmapepigenomics.org/protocolstype/experimental': 'Roadmap Epigenomics'}
+
+        for ix, row in protocol_df.iterrows():
+            index.append(ix)
+            protocol = row['chip_protocol']
+            if protocol in {'standard'}:
+                protocol = None
+            if protocol:
+                protocol = protocol_substitutions[protocol]
+
+
+            antibody_amount_str = row['chip_protocol_antibody_amount']
+            antibody_amount, antibody_units = None, None
+
+            if antibody_amount_str in {'n/a', 'standard'}:
+                antibody_amount_str = None
+
+            if antibody_amount_str:
+                antibody_amount_str = antibody_amount_str.strip('~').replace(' ', '')
+
+                if 'micrograms' in antibody_amount_str:
+                    antibody_amount = float(antibody_amount_str[:-len('micrograms')].strip())
+                    antibody_units = 'ug'
+                elif 'ug' in antibody_amount_str:
+                    antibody_units = 'ug'
+                    antibody_amount = antibody_amount_str[:-len('ug')]
+                elif 'ul' in antibody_amount_str:
+                    antibody_units = 'ul'
+                    antibody_amount = antibody_amount_str[:-len('ul')]
+                else:
+                    raise Exception('Cannot parse antibody amount from {!r}'.format(antibody_amount_str))
+
+            beads_amount_str = row['chip_protocol_bead_amount']
+            if beads_amount_str in {'standard'}:
+                beads_amount_str = None
+
+            if beads_amount_str:
+                beads_amount_str = beads_amount_str.lower().replace('(cst)', '')\
+                                                           .replace('bed volume', '').replace('a/g bead slurry', '')
+                beads_amount_str = beads_amount_str.replace(' ', '')
+
+                if ',' in beads_amount_str:
+                    beads_amount_units = 'count'
+                    beads_amount = int(beads_amount_str.replace(',', ''))
+                elif 'ul' in beads_amount_str:
+                    beads_amount = float(beads_amount_str[:-len('ul')])
+                    beads_amount_units = 'ul'
+                else:
+                    raise Exception('Cannot parse beads amount from {!r}'.format(beads_amount_str))
+
+            chromatin_amount_str = row['chip_protocol_chromatin_amount']
+
+            if chromatin_amount_str in {'standard'}:
+                chromatin_amount_str = None
+
+            if chromatin_amount_str:
+                chromatin_amount_str = chromatin_amount_str.lower()
+                chromatin_amount_str = chromatin_amount_str.replace(' ', '')
+                chromatin_amount_str = chromatin_amount_str.replace('to', '-')
+
+                if 'micrograms' in chromatin_amount_str:
+                    chromatin_amount_units = 'ug'
+                    chromatin_amount = float(chromatin_amount_str[:-len('micrograms')].strip())
+                elif 'millioncells' in chromatin_amount_str:
+                    chromatin_amount_units = 'million cells'
+                    chromatin_amount = chromatin_amount_str[:-len('millioncells')].strip()
+                elif 'ug' in chromatin_amount_str:
+                    chromatin_amount_units = 'ug'
+                    chromatin_amount = chromatin_amount_str[:-len('ug')]
+                elif 'ng' in chromatin_amount_str:
+                    chromatin_amount_units = 'ng'
+                    chromatin_amount = chromatin_amount_str[:-len('ng')]
+                else:
+                    raise Exception('Cannot parse chromatin amount: {!r}'.format(chromatin_amount_str))
+
+            data.append({'Chromatin Amount': chromatin_amount,
+                         'Chromatin Amount Units': chromatin_amount_units,
+                         'Beads Amount': beads_amount,
+                         'Beads Amount Units': beads_amount_units,
+                         'Antibody Amount': antibody_amount,
+                         'Antibody Amount Units': antibody_units,
+                         'Protocol': protocol})
+
+        return pd.DataFrame(data, index=index)
+
     def _fixed_antibody_df(self, original_df):
 
         antibody_data = original_df[['chip_antibody', 'chip_antibody_catalog', 'chip_antibody_lot',
@@ -181,30 +282,15 @@ class CleanRoadmapData(luigi.Task):
 
             data.append({'Antibody Target': target,
                          'Antibody Vendor': vendor,
-                         'Lot Number': lot_number,
-                         'Catalog ID': catalog_id})
+                         'Antibody Lot Number': lot_number,
+                         'Antibody Catalog ID': catalog_id})
 
         return pd.DataFrame(data, index=index)
 
 
     def run(self):
         COLUMNS_TO_KEEP = ['Sample Name',
-                           'Experiment', 'NA Accession', 'Center',
-                           'chip_protocol',
-                           'chip_protocol_antibody_amount',
-                           'chip_protocol_bead_amount',
-                           'chip_protocol_bead_type',
-                           'chip_protocol_chromatin_amount',
-                           'collection_method',
-                           'differentiation_stage',
-                           'disease',
-                           'donor_age',
-                           'donor_ethnicity',
-                           'donor_id',
-                           'extraction_protocol_sonication_cycles',
-                           'extraction_protocol_type_of_sonicator',
-                           'size_fraction',
-                           ]
+                           'Experiment', 'Center']
 
         COLUMNS_TO_RENAME = [('biomaterial_provider', 'Biomaterial Provider')]
 
@@ -219,7 +305,26 @@ class CleanRoadmapData(luigi.Task):
                 df[new_column] = original_df[old_column]
 
             df = df.join(self._fixed_antibody_df(original_df))
+            df = df.join(self._fixed_chip_protocol_df(original_df))
 
+            column_order = ['Sample Name',
+                            'Sex',
+                            'Center',
+                            'Experiment',
+                            'Protocol',
+                            'Antibody Target',
+                            'Antibody Vendor',
+                            'Antibody Catalog ID',
+                            'Antibody Lot Number',
+                            'Antibody Amount',
+                            'Antibody Amount Units',
+                            'Beads Amount',
+                            'Beads Amount Units',
+                            'Chromatin Amount',
+                            'Chromatin Amount Units',
+                            ]
+            df = df[column_order]
+            
             with self.output().open('w') as out_:
                 df.to_csv(out_)
 
