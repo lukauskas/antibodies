@@ -7,6 +7,8 @@ import luigi
 import lxml.html
 import requests
 import pandas as pd
+from antibodies.cleanup import cleanup_vendor_name, cleanup_catalog_id, cleanup_lot_number
+
 
 def parse_antibody_id(antibody_id_in_database):
     antibody_id_in_database = int(antibody_id_in_database)
@@ -25,6 +27,9 @@ def parse_antibody_id(antibody_id_in_database):
     source, catalogue_number, lot_number, host, clonality = [_extract(info_row.xpath('./td[{}]//text()'.format(i)))
                                                              for i in xrange(1, 6)]
 
+    source = cleanup_vendor_name(source)
+    catalogue_number = cleanup_catalog_id(catalogue_number, source)
+    lot_number = cleanup_lot_number(source, catalogue_number, lot_number)
 
     data = []
 

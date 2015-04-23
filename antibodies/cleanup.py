@@ -13,7 +13,10 @@ KNOWN_VENDORS = {'Cell Signaling Technology', 'Diagenode', 'Millipore',
                  'Thomas Jenuwein Lab',
                  'Wako',
                  'Abcam',
-                 'Epitomics'
+                 'Epitomics',
+                 'Lake Placid',
+                 'Santa Cruz Biotech',
+                 'Novus Biologicals'
                  }
 
 
@@ -28,6 +31,8 @@ def cleanup_vendor_name(vendor_name):
         vendor_name = 'Millipore'
     elif vendor_name.lower() == 'abcam':
         vendor_name = 'Abcam'
+    elif vendor_name.lower() == 'novus biologicals':
+        vendor_name = 'Novus Biologicals'
 
     if vendor_name:
         assert vendor_name in KNOWN_VENDORS, 'Unseen vendor name {!r}'.format(vendor_name)
@@ -44,12 +49,15 @@ def cleanup_catalog_id(catalog_id, vendor):
             catalog_id = catalog_id[:-len('(discontinued)')].strip()
 
         if vendor == 'Abcam':
-            if not catalog_id.startswith('EP'):
-                catalog_id = catalog_id.lower()
-                if not catalog_id.startswith('ab'):
-                    catalog_id = 'ab' + str(int(catalog_id))
-                if '-' in catalog_id:
-                    catalog_id = catalog_id.partition('-')[0]
+            # Hack for GSM896161
+            if catalog_id == 'EP964Y':
+                catalog_id = 'ab52946'
+
+            catalog_id = catalog_id.lower()
+            if not catalog_id.startswith('ab'):
+                catalog_id = 'ab' + str(int(catalog_id))
+            if '-' in catalog_id:
+                catalog_id = catalog_id.partition('-')[0]
 
         elif vendor == 'Cell Signaling Technology':
             # hack for GSM707004
@@ -64,9 +72,13 @@ def cleanup_catalog_id(catalog_id, vendor):
                 catalog_id = str(int(catalog_id)) + 'S'
 
         elif vendor == 'Active Motif':
-            if catalog_id.lower().startswith('am'):
-                catalog_id = catalog_id[2:]
-            catalog_id = int(catalog_id)
+            if catalog_id == 'AR-0108':
+                # Hack for AR-0108
+                pass
+            else:
+                if catalog_id.lower().startswith('am'):
+                    catalog_id = catalog_id[2:]
+                catalog_id = int(catalog_id.replace('-', ''))
         elif vendor == 'Millipore':
             if catalog_id.startswith('Upstate') or catalog_id.startswith('upstate'):
                 catalog_id = catalog_id[len('upstate'):].strip()
@@ -105,7 +117,11 @@ def cleanup_lot_number(vendor, catalog_id, lot_number):
             lot_number = lot_number.lstrip('#')
 
         if vendor == 'Abcam':
-            lot_number = int(lot_number.lstrip('u'))
+            if lot_number.startswith('GR') or lot_number == '6F8-D9':
+                # Not sure how to clean this up
+                pass
+            else:
+                lot_number = int(lot_number.lstrip('u'))
         elif vendor == 'Active Motif':
             lot_number = int(lot_number)
         elif vendor == 'Diagenode':
