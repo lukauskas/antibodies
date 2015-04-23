@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+import re
 
 KNOWN_VENDORS = {'Cell Signaling Technology', 'Diagenode', 'Millipore/Upstate',
                  'Abcam', 'Active Motif'}
@@ -12,21 +13,26 @@ def cleanup_vendor_name(vendor_name):
         vendor_name = 'Cell Signaling Technology'
     elif vendor_name in {'diagenode', 'Diagenode', 'Diagenonde'}:
         vendor_name = 'Diagenode'
-    elif vendor_name in {'none', '0'}:
+    elif vendor_name in {'none', '0'} or not vendor_name:
         vendor_name = None
     elif vendor_name in {'Millipore', 'Upstate', 'Upstate or Millipore'}:
         vendor_name = 'Millipore/Upstate'
+    elif vendor_name.lower() == 'abcam':
+        vendor_name = 'Abcam'
 
-    assert vendor_name in KNOWN_VENDORS, 'Unseen vendor name {!r}'.format(vendor_name)
+    if vendor_name:
+        assert vendor_name in KNOWN_VENDORS, 'Unseen vendor name {!r}'.format(vendor_name)
     return vendor_name
 
 
 def cleanup_catalog_id(catalog_id, vendor):
-    assert vendor in KNOWN_VENDORS
+
 
     if catalog_id in {'0', 'none'}:
         catalog_id = None
     if catalog_id:
+        assert vendor in KNOWN_VENDORS, 'Unseen vendor name {!r}'.format(vendor)
+
         if vendor == 'Abcam':
             if not catalog_id.startswith('EP'):
                 catalog_id = catalog_id.lower()
@@ -47,6 +53,17 @@ def cleanup_catalog_id(catalog_id, vendor):
         elif vendor == 'Millipore/Upstate':
             if catalog_id.startswith('Upstate') or catalog_id.startswith('upstate'):
                 catalog_id = catalog_id[len('upstate'):].strip()
-            if catalog_id.startswith('Millipore'):
+            elif catalog_id.startswith('Millipore'):
                 catalog_id = catalog_id[len('Millipore'):].strip()
+            elif catalog_id.startswith('up'):
+                catalog_id = catalog_id[len('up'):].strip()
+        elif vendor == 'Diagenode':
+            if catalog_id.endswith(',9751S'):
+                # Hack for GSM707003
+                catalog_id = catalog_id[:-len(',9751S')]
+
+            match = re.match('pab-?(\d{3})-?(\d{3})$', catalog_id)
+            assert match, 'Canot parse Diagenode catalog id {!r}'.format(catalog_id)
+            catalog_id = 'pAb-{}-{}'.format(match.group(1), match.group(2))
+
     return catalog_id
