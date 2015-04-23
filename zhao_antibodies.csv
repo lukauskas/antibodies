@@ -3,7 +3,7 @@ H3K4me1,Abcam,ab8895,
 H3K4me2,Abcam,ab7766,
 H3K4me3,Abcam,ab8580,
 H3K9me1,Abcam,ab8896,
-H3K9me2,abcam,ab1220,
+H3K9me2,Abcam,ab1220,
 H3K9me3,Abcam,ab8898,
 H3K27me1,Millipore,07-448,
 H3K27me2,Abcam,ab24684,
@@ -24,7 +24,7 @@ Pol II,Abcam,ab5408,
 CTCF,Millipore,07-729,
 H3K4ac,Millipore,07-539,26747
 H3K9ac,Abcam,ab4441,262536
-H3K14ac,Upsate,07-353,30020
+H3K14ac,Millipore,07-353,30020
 H3K18ac,Abcam,ab1191,117520
 H3K23ac,Millipore,07-355,27133
 H3K27ac,Abcam,ab4729,34629

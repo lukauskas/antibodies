@@ -11,7 +11,7 @@ import logging
 import numpy as np
 import time
 from antibodies.cleanup import cleanup_vendor_name, cleanup_catalog_id, cleanup_lot_number
-from antibodies.validity.citeab import parse_number_of_citations_from_citeab
+from antibodies.validity.citeab import parse_number_of_citations_from_citeab, CitationsTaskBase
 
 LOGGER = logging.getLogger('roadmap_antibodies')
 
@@ -295,10 +295,7 @@ class CleanRoadmapData(luigi.Task):
             with self.output().open('w') as out_:
                 df.to_csv(out_)
 
-class RoadmapCitations(luigi.Task):
-
-    _DELAY_ON_TOO_MANY_REQUESTS_SECONDS = 60
-    _N_ATTEMPTS = 5
+class RoadmapCitations(CitationsTaskBase):
 
     def requires(self):
         return CleanRoadmapData()
@@ -306,52 +303,6 @@ class RoadmapCitations(luigi.Task):
     def output(self):
         return luigi.File('roadmap_citations.csv')
 
-    def run(self):
-
-        with self.input().open('r') as f:
-            df = pd.read_csv(f)
-
-        vendor_catalogues = df[['Antibody Vendor', 'Antibody Catalogue ID']].dropna().drop_duplicates()
-
-        data = []
-        for i, (ix, row) in enumerate(vendor_catalogues.iterrows(), start=1):
-            vendor = row['Antibody Vendor']
-            catalogue_id = row['Antibody Catalogue ID']
-
-            LOGGER.info('Processing antibody {}/{} ({:.2f}%) -- {} {}'.format(i,
-                                                                              len(vendor_catalogues),
-                                                                              i*100.0 / len(vendor_catalogues),
-                                                                              vendor,
-                                                                              catalogue_id))
-            for x in range(1, self._N_ATTEMPTS+1):
-                if x > 1:
-                    LOGGER.info('Attempt #{}/{}'.format(x, self._N_ATTEMPTS))
-
-                try:
-                    citations = parse_number_of_citations_from_citeab(vendor, catalogue_id)
-                    break
-                except requests.HTTPError as e:
-                    if e.response.status_code == 429:
-                        if x < self._N_ATTEMPTS:
-                            LOGGER.info('Got 429 sleeping for {} seconds'.format(self._DELAY_ON_TOO_MANY_REQUESTS_SECONDS))
-                            time.sleep(self._DELAY_ON_TOO_MANY_REQUESTS_SECONDS)
-                            # TODO: change http agent
-                            continue
-                        else:
-                            LOGGER.error('Exhausted number of requests retries')
-                            raise
-                    else:
-                        raise
-
-            data.append({'Antibody Vendor': vendor,
-                         'Antibody Catalogue ID': catalogue_id,
-                         'Number of Citations': citations})
-
-        ans_df = pd.DataFrame(data)
-        ans_df = ans_df[['Antibody Vendor', 'Antibody Catalogue ID', 'Number of Citations']]
-
-        with self.output().open('w') as f:
-            ans_df.to_csv(f, index=False)
 
 if __name__ == '__main__':
     LOGGER.setLevel(logging.DEBUG)
