@@ -38,14 +38,21 @@ def cleanup_catalog_id(catalog_id, vendor):
                 catalog_id = catalog_id.lower()
                 if not catalog_id.startswith('ab'):
                     catalog_id = 'ab' + str(int(catalog_id))
+                if '-' in catalog_id:
+                    catalog_id = catalog_id.partition('-')[0]
 
         elif vendor == 'Cell Signaling Technology':
+            # hack for GSM707004
+            if catalog_id == 'pAb-037-050,9751S':
+                catalog_id = '9751S'
+
             catalog_id = catalog_id.upper()
             if not catalog_id.endswith('S'):
                 if catalog_id.endswith('B'):
                     catalog_id = catalog_id.rstrip('B')  # I think this is a typo
 
                 catalog_id = str(int(catalog_id)) + 'S'
+
         elif vendor == 'Active Motif':
             if catalog_id.lower().startswith('am'):
                 catalog_id = catalog_id[2:]
@@ -61,9 +68,12 @@ def cleanup_catalog_id(catalog_id, vendor):
             if catalog_id.endswith(',9751S'):
                 # Hack for GSM707003
                 catalog_id = catalog_id[:-len(',9751S')]
+            # Hack for GSM941732
+            if catalog_id == 'pAb05605':
+                catalog_id = 'pAb056050'
 
-            match = re.match('pab-?(\d{3})-?(\d{3})$', catalog_id)
-            assert match, 'Canot parse Diagenode catalog id {!r}'.format(catalog_id)
+            match = re.match('pab-?(\d{3})-?(\d{3})$', catalog_id.lower())
+            assert match, 'Cannot parse Diagenode catalog id {!r}'.format(catalog_id)
             catalog_id = 'pAb-{}-{}'.format(match.group(1), match.group(2))
 
     return catalog_id
