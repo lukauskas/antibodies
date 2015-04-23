@@ -10,6 +10,7 @@ import pandas as pd
 import logging
 import numpy as np
 import time
+from antibodies.cleanup import cleanup_vendor_name, cleanup_catalog_id
 from antibodies.validity.citeab import parse_number_of_citations_from_citeab
 
 LOGGER = logging.getLogger('roadmap_antibodies')
@@ -237,14 +238,7 @@ class CleanRoadmapData(luigi.Task):
                     target = target[len('Histone'):].strip()
 
             vendor = row['chip_antibody_provider']
-            if vendor in {'Cell Signaling', 'Cell Signalling', 'Cell Signaling Technology', 'CST'}:
-                vendor = 'Cell Signaling Technology'
-            elif vendor in {'diagenode', 'Diagenode', 'Diagenonde'}:
-                vendor = 'Diagenode'
-            elif vendor in {'none', '0'}:
-                vendor = None
-            elif vendor in {'Millipore', 'Upstate', 'Upstate or Millipore'}:
-                vendor = 'Millipore/Upstate'
+            vendor = cleanup_vendor_name(vendor)
 
             lot_number = row['chip_antibody_lot']
 
@@ -255,32 +249,7 @@ class CleanRoadmapData(luigi.Task):
                 lot_number = lot_number.lstrip('#')
 
             catalog_id = row['chip_antibody_catalog']
-            if catalog_id in {'0', 'none'}:
-                catalog_id = None
-
-            if catalog_id:
-                if vendor == 'Abcam':
-                    if not catalog_id.startswith('EP'):
-                        catalog_id = catalog_id.lower()
-                        if not catalog_id.startswith('ab'):
-                            catalog_id = 'ab' + str(int(catalog_id))
-
-                elif vendor == 'Cell Signaling Technology':
-                    catalog_id = catalog_id.upper()
-                    if not catalog_id.endswith('S'):
-                        if catalog_id.endswith('B'):
-                            catalog_id = catalog_id.rstrip('B')  # I think this is a typo
-
-                        catalog_id = str(int(catalog_id)) + 'S'
-                elif vendor == 'Active Motif':
-                    catalog_id = catalog_id.upper()
-                    if not catalog_id.startswith('AM'):
-                        catalog_id = 'AM' + str(int(catalog_id))
-                elif vendor == 'Millipore/Upstate':
-                    if catalog_id.startswith('Upstate') or catalog_id.startswith('upstate'):
-                        catalog_id = catalog_id[len('upstate'):].strip()
-                    if catalog_id.startswith('Millipore'):
-                        catalog_id = catalog_id[len('Millipore'):].strip()
+            catalog_id = cleanup_catalog_id(catalog_id, vendor)
 
             data.append({'Antibody Target': target,
                          'Antibody Vendor': vendor,
