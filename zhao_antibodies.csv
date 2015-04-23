@@ -1,0 +1,43 @@
+Antibody Target,Antibody Vendor,Antibody Catalogue ID,Antibody Lot Number
+H3K4me1,Abcam,ab8895,
+H3K4me2,Abcam,ab7766,
+H3K4me3,Abcam,ab8580,
+H3K9me1,Abcam,ab8896,
+H3K9me2,abcam,ab1220,
+H3K9me3,Abcam,ab8898,
+H3K27me1,Millipore,07-448,
+H3K27me2,Abcam,ab24684,
+H3K27me3,Millipore,07-449,
+H3K36me1,Abcam,ab9048,
+H3K36me3,Abcam,a9050,
+H3K79me1,Abcam,ab2886,
+H3K79me2,Abcam,ab3594,
+H3K79me3,Abcam,ab2621,
+H3R2me1,Abcam,ab15584,
+H3R2me2(as),Abcam,ab8046,
+H4K20me1,Abcam,ab9051,
+H4K20me3,Abcam,ab9053,
+H2A+H4R3me2(sym),Abcam,ab5823,
+H2BK5me1,Abcam,ab12929,
+H2A.Z,Abcam,ab4174,
+Pol II,Abcam,ab5408,
+CTCF,Millipore,07-729,
+H3K4ac,Millipore,07-539,26747
+H3K9ac,Abcam,ab4441,262536
+H3K14ac,Upsate,07-353,30020
+H3K18ac,Abcam,ab1191,117520
+H3K23ac,Millipore,07-355,27133
+H3K27ac,Abcam,ab4729,34629
+H3K36ac,Millipore,07-540,26750
+H4K5ac,Millipore,07-327,30417
+H4K8ac,Millipore,07-328,30399
+H4K12ac,Millipore,07-595,28885
+H4K16ac,Santa Cruz Biotech,sc-8662R,F1604
+H4K91ac,Abcam,ab4627,82963
+H2AK5ac,Abcam,ab1764,287579
+H2AK9ac,Millipore,07-289,22178
+H2BK5ac,Abcam,ab40886,255466
+H2BK12ac,Abcam,ab40883,291625
+H2BK20ac,Millipore,07-347,22355
+H2BK120ac,Millipore,07-564,26872
+H2BK5me1,Abcam,ab12929,78460
