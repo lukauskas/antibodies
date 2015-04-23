@@ -9,6 +9,8 @@ import requests
 import pandas as pd
 import logging
 import numpy as np
+import time
+from antibodies.validity.citeab import parse_number_of_citations_from_citeab
 
 LOGGER = logging.getLogger('roadmap_antibodies')
 
@@ -283,7 +285,7 @@ class CleanRoadmapData(luigi.Task):
             data.append({'Antibody Target': target,
                          'Antibody Vendor': vendor,
                          'Antibody Lot Number': lot_number,
-                         'Antibody Catalog ID': catalog_id})
+                         'Antibody Catalogue ID': catalog_id})
 
         return pd.DataFrame(data, index=index)
 
@@ -314,7 +316,7 @@ class CleanRoadmapData(luigi.Task):
                             'Protocol',
                             'Antibody Target',
                             'Antibody Vendor',
-                            'Antibody Catalog ID',
+                            'Antibody Catalogue ID',
                             'Antibody Lot Number',
                             'Antibody Amount',
                             'Antibody Amount Units',
@@ -328,12 +330,68 @@ class CleanRoadmapData(luigi.Task):
             with self.output().open('w') as out_:
                 df.to_csv(out_)
 
+class RoadmapCitations(luigi.Task):
 
+    _DELAY_ON_TOO_MANY_REQUESTS_SECONDS = 10
+    _N_ATTEMPTS = 5
+
+    def requires(self):
+        return CleanRoadmapData()
+
+    def output(self):
+        return luigi.File('roadmap_citations.csv')
+
+    def run(self):
+
+        with self.input().open('r') as f:
+            df = pd.read_csv(f)
+
+        vendor_catalogues = df[['Antibody Vendor', 'Antibody Catalogue ID']].dropna().drop_duplicates()
+
+        data = []
+        for i, (ix, row) in enumerate(vendor_catalogues.iterrows(), start=1):
+            vendor = row['Antibody Vendor']
+            catalogue_id = row['Antibody Catalogue ID']
+
+            LOGGER.info('Processing antibody {}/{} ({:.2f}%) -- {} {}'.format(i,
+                                                                              len(df),
+                                                                              i*100.0 / len(df),
+                                                                              vendor,
+                                                                              catalogue_id))
+            for x in range(1, self._N_ATTEMPTS+1):
+                if x > 1:
+                    LOGGER.info('Attempt #{}/{}'.format(x, self._N_ATTEMPTS))
+
+                try:
+                    citations = parse_number_of_citations_from_citeab(vendor, catalogue_id)
+                    break
+                except requests.HTTPError as e:
+                    if e.response.status_code == 429:
+                        if x < self._N_ATTEMPTS:
+                            LOGGER.info('Got 429 sleeping for {}'.format(self._DELAY_ON_TOO_MANY_REQUESTS_SECONDS))
+                            time.sleep(self._DELAY_ON_TOO_MANY_REQUESTS_SECONDS)
+                            # TODO: change http agent
+                            continue
+                        else:
+                            LOGGER.error('Exhausted number of requests retries')
+                            raise
+                    else:
+                        raise
+
+            data.append({'Antibody Vendor': vendor,
+                         'Antibody Catalogue ID': catalogue_id,
+                         'Number of Citations': citations})
+
+        ans_df = pd.DataFrame(data)
+        ans_df = ans_df[['Antibody Vendor', 'Antibody Catalogue ID', 'Number of Citations']]
+
+        with self.output().open('w') as f:
+            ans_df.to_csv(f)
 
 if __name__ == '__main__':
     LOGGER.setLevel(logging.DEBUG)
     logging.basicConfig()
 
-    luigi.run(main_task_cls=CleanRoadmapData)
+    luigi.run()
 
 

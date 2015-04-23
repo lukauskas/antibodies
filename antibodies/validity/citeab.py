@@ -5,11 +5,10 @@ from __future__ import unicode_literals
 import logging
 import lxml.html
 import requests
-import pandas as pd
 
 SEARCH_URI = 'http://www.citeab.com/search?q={}'
 
-LOGGER = logging.getLogger('antibodies.validity.abcite')
+LOGGER = logging.getLogger('antibodies.validity.citeab')
 
 def parse_number_of_citations_from_citeab(antibody_vendor, antibody_code):
     logger = LOGGER
@@ -29,9 +28,13 @@ def parse_number_of_citations_from_citeab(antibody_vendor, antibody_code):
 
     elif antibody_vendor == 'Cell Signaling Technology':
         query_code = antibody_code.rstrip('S')
+        code_is_correct = lambda x: x == antibody_code.rstrip('S')
 
     response = requests.get(SEARCH_URI.format('{} {}'.format(query_code, query_vendor)))
     response.raise_for_status()
+    if 'Your search returned no matches.' in response.text:
+        return None
+
     tree = lxml.html.fromstring(response.text)
 
     results_rows = tree.xpath('//div[@class="search-results-row"]')
@@ -48,17 +51,13 @@ def parse_number_of_citations_from_citeab(antibody_vendor, antibody_code):
             logger.info('Skipping {}:{} as vendor is wrong'.format(row_vendor, row_antibody_code))
             continue
 
-        number_of_citations = int(row.xpath('./div[@class="ab-cite"]/div[@class="label radius"]/text()')[0])
+        number_of_citations = int(row.xpath('./div[contains(@class, "ab-cite")]/div[@class="label radius"]/text()')[0])
 
-        data.append({'Vendor': antibody_vendor,
-                     'Antibody Catalogue ID': antibody_code,
-                     'Number of Citations': number_of_citations})
+        data.append(number_of_citations)
 
-    assert data, 'No data parsed for {!r} {!r}'.format(antibody_vendor, antibody_code)
+    assert data, 'No data parsed for {!r} {!r} but search returned results'.format(antibody_vendor, antibody_code)
+    assert len(data) == 1, 'More than one number parsed for {!r} {!r}'.format(antibody_vendor, antibody_code)
 
-    df = pd.DataFrame(data)
-    df = df[['Vendor', 'Antibody Catalogue ID', 'Number of Citations']]
-
-    return df
+    return data[0]
 
 
