@@ -297,7 +297,7 @@ class CleanRoadmapData(luigi.Task):
 
 class RoadmapCitations(luigi.Task):
 
-    _DELAY_ON_TOO_MANY_REQUESTS_SECONDS = 10
+    _DELAY_ON_TOO_MANY_REQUESTS_SECONDS = 60
     _N_ATTEMPTS = 5
 
     def requires(self):
@@ -319,8 +319,8 @@ class RoadmapCitations(luigi.Task):
             catalogue_id = row['Antibody Catalogue ID']
 
             LOGGER.info('Processing antibody {}/{} ({:.2f}%) -- {} {}'.format(i,
-                                                                              len(df),
-                                                                              i*100.0 / len(df),
+                                                                              len(vendor_catalogues),
+                                                                              i*100.0 / len(vendor_catalogues),
                                                                               vendor,
                                                                               catalogue_id))
             for x in range(1, self._N_ATTEMPTS+1):
@@ -333,7 +333,7 @@ class RoadmapCitations(luigi.Task):
                 except requests.HTTPError as e:
                     if e.response.status_code == 429:
                         if x < self._N_ATTEMPTS:
-                            LOGGER.info('Got 429 sleeping for {}'.format(self._DELAY_ON_TOO_MANY_REQUESTS_SECONDS))
+                            LOGGER.info('Got 429 sleeping for {} seconds'.format(self._DELAY_ON_TOO_MANY_REQUESTS_SECONDS))
                             time.sleep(self._DELAY_ON_TOO_MANY_REQUESTS_SECONDS)
                             # TODO: change http agent
                             continue
@@ -351,7 +351,7 @@ class RoadmapCitations(luigi.Task):
         ans_df = ans_df[['Antibody Vendor', 'Antibody Catalogue ID', 'Number of Citations']]
 
         with self.output().open('w') as f:
-            ans_df.to_csv(f)
+            ans_df.to_csv(f, index=False)
 
 if __name__ == '__main__':
     LOGGER.setLevel(logging.DEBUG)

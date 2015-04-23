@@ -16,7 +16,7 @@ KNOWN_VENDORS = {'Cell Signaling Technology', 'Diagenode', 'Millipore',
                  'Epitomics',
                  'Lake Placid',
                  'Santa Cruz Biotech',
-                 'Novus Biologicals'
+                 'Novus Biologicals',
                  }
 
 
