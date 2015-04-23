@@ -10,7 +10,7 @@ import pandas as pd
 import logging
 import numpy as np
 import time
-from antibodies.cleanup import cleanup_vendor_name, cleanup_catalog_id
+from antibodies.cleanup import cleanup_vendor_name, cleanup_catalog_id, cleanup_lot_number
 from antibodies.validity.citeab import parse_number_of_citations_from_citeab
 
 LOGGER = logging.getLogger('roadmap_antibodies')
@@ -220,6 +220,7 @@ class CleanRoadmapData(luigi.Task):
 
         return pd.DataFrame(data, index=index)
 
+
     def _fixed_antibody_df(self, original_df):
 
         antibody_data = original_df[['chip_antibody', 'chip_antibody_catalog', 'chip_antibody_lot',
@@ -240,16 +241,11 @@ class CleanRoadmapData(luigi.Task):
             vendor = row['chip_antibody_provider']
             vendor = cleanup_vendor_name(vendor)
 
-            lot_number = row['chip_antibody_lot']
-
-            if lot_number in {'none', 'Unknown', '0'}:
-                lot_number = None
-            elif lot_number.lower().startswith('lot'):
-                lot_number = lot_number[3:]
-                lot_number = lot_number.lstrip('#')
-
             catalog_id = row['chip_antibody_catalog']
             catalog_id = cleanup_catalog_id(catalog_id, vendor)
+
+            lot_number = row['chip_antibody_lot']
+            lot_number = cleanup_lot_number(vendor, catalog_id, lot_number)
 
             data.append({'Antibody Target': target,
                          'Antibody Vendor': vendor,
