@@ -235,7 +235,7 @@ class CleanRoadmapData(luigi.Task):
                     target = target[len('Histone'):].strip()
 
             vendor = row['chip_antibody_provider']
-            if vendor in {'Cell Signaling', 'Cell Signalling', 'Cell Signaling Technology'}:
+            if vendor in {'Cell Signaling', 'Cell Signalling', 'Cell Signaling Technology', 'CST'}:
                 vendor = 'Cell Signaling Technology'
             elif vendor in {'diagenode', 'Diagenode', 'Diagenonde'}:
                 vendor = 'Diagenode'
