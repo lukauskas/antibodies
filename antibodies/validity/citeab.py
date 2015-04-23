@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 import logging
-import lxml
+import lxml.html
 import requests
 import pandas as pd
 
@@ -11,7 +11,7 @@ SEARCH_URI = 'http://www.citeab.com/search?q={}'
 
 LOGGER = logging.getLogger('antibodies.validity.abcite')
 
-def parse_number_of_citations_from_abcite(antibody_vendor, antibody_code):
+def parse_number_of_citations_from_citeab(antibody_vendor, antibody_code):
     logger = LOGGER
     query_vendor = antibody_vendor
     query_code = antibody_code
@@ -25,7 +25,7 @@ def parse_number_of_citations_from_abcite(antibody_vendor, antibody_code):
 
     elif antibody_vendor == 'Millipore/Upstate':
         query_vendor = 'Millipore'
-        vendor_is_correct = lambda x: 'Millipore' in y
+        vendor_is_correct = lambda x: 'Millipore' in x
 
     elif antibody_vendor == 'Cell Signaling Technology':
         query_code = antibody_code.rstrip('S')
@@ -54,7 +54,7 @@ def parse_number_of_citations_from_abcite(antibody_vendor, antibody_code):
                      'Antibody Catalogue ID': antibody_code,
                      'Number of Citations': number_of_citations})
 
-    assert data
+    assert data, 'No data parsed for {!r} {!r}'.format(antibody_vendor, antibody_code)
 
     df = pd.DataFrame(data)
     df = df[['Vendor', 'Antibody Catalogue ID', 'Number of Citations']]
