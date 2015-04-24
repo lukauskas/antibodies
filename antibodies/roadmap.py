@@ -11,6 +11,7 @@ import logging
 import numpy as np
 import time
 from antibodies.cleanup import cleanup_vendor_name, cleanup_catalog_id, cleanup_lot_number
+from antibodies.validity.antibody_validation_database import AntibodyValidationDatabase
 from antibodies.validity.citeab import parse_number_of_citations_from_citeab, CitationsTaskBase
 
 LOGGER = logging.getLogger('roadmap_antibodies')
@@ -303,6 +304,77 @@ class RoadmapCitations(CitationsTaskBase):
     def output(self):
         return luigi.File('roadmap_citations.csv')
 
+class RoadmapSummary(luigi.Task):
+
+    def requires(self):
+        return [CleanRoadmapData(), RoadmapCitations(), AntibodyValidationDatabase()]
+
+    def output(self):
+        return luigi.File('roadmap_summary.csv')
+
+    def run(self):
+        roadmap_data_output, roadmap_citations_output, antibody_validation_database_output = self.input()
+
+        with roadmap_data_output.open('r') as f:
+            roadmap_antibodies = pd.read_csv(f)
+
+        with roadmap_citations_output.open('r') as f:
+            roadmap_citations = pd.read_csv(f, index_col=['Antibody Vendor', 'Antibody Catalogue ID'])
+
+        with antibody_validation_database_output.open('r') as f:
+            antibody_validation_database = pd.read_csv(f)
+
+
+        number_of_experiments_used = roadmap_antibodies.groupby(['Experiment', 'Antibody Target', 'Antibody Vendor',
+                                                                 'Antibody Catalogue ID', 'Antibody Lot Number']).aggregate(len)
+        number_of_experiments_used = number_of_experiments_used[number_of_experiments_used.columns[0]]
+        number_of_experiments_used.name = 'Number of Roadmap Experiments'
+        number_of_experiments_used = number_of_experiments_used
+
+        h9_abs = roadmap_antibodies[roadmap_antibodies['Sample Name'] == 'H9 cell line'][['Antibody Vendor', 'Antibody Catalogue ID', 'Antibody Lot Number']].drop_duplicates()
+        h9_abs = {tuple(x) for __, x in h9_abs.iterrows()}
+        used_for_h9 = pd.Series([tuple(x) in h9_abs for __, x in number_of_experiments_used.reset_index()[['Antibody Vendor', 'Antibody Catalogue ID', 'Antibody Lot Number']].iterrows()], index=number_of_experiments_used.index, name='Used for H9')
+
+        metadata = pd.concat((used_for_h9, number_of_experiments_used), axis=1)
+
+        metadata = metadata.reset_index().join(roadmap_citations,
+                                               on=['Antibody Vendor', 'Antibody Catalogue ID'],
+                                               how='left')
+
+        antibody_validation_database['Validation Result'] = antibody_validation_database['Validation Result'].fillna('Unknown')
+
+        grouped_validations = antibody_validation_database.groupby(['Vendor', 'Catalogue ID', 'Lot Number',
+                                           'Validation', 'Validation Result']).count().max(axis=1)
+
+        grouped_validations.name = 'Count'
+        validations_pivot_lot_number = pd.pivot_table(grouped_validations.reset_index(), values='Count',
+                                                      index=['Vendor', 'Catalogue ID',
+                                                             'Lot Number'
+                                                            ],
+                                                      columns=['Validation', 'Validation Result'],
+                                                      aggfunc=np.sum, fill_value=0)
+        validations_pivot_no_lot = pd.pivot_table(grouped_validations.reset_index(), values='Count',
+                                                  index=['Vendor', 'Catalogue ID',
+                                                        ],
+                                                  columns=['Validation', 'Validation Result'],
+                                                  aggfunc=np.sum, fill_value=0)
+
+        full_data = metadata.join(validations_pivot_lot_number,
+                                                          on=['Antibody Vendor',
+                                                              'Antibody Catalogue ID', 'Antibody Lot Number'],
+                                                          how='left')
+        full_data.columns = [x if not isinstance(x, tuple) else ('Lot', x[0], x[1]) for x in full_data.columns]
+        full_data = full_data.join(validations_pivot_no_lot, on=['Antibody Vendor', 'Antibody Catalogue ID'],
+              how='left').set_index(['Experiment', 'Antibody Target', 'Antibody Vendor', 'Antibody Catalogue ID', 'Antibody Lot Number'])
+        full_data.columns = [x if not isinstance(x, tuple) or x[0] == 'Lot' else ('Antibody', x[0], x[1])
+                             for x in full_data.columns]
+
+
+        full_data.columns = pd.MultiIndex.from_tuples([x if isinstance(x, tuple) else (None, None,x)
+                                                       for x in full_data.columns])
+
+        with self.output().open('w') as f:
+            full_data.to_csv(f)
 
 if __name__ == '__main__':
     LOGGER.setLevel(logging.DEBUG)
